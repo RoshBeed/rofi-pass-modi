@@ -17,7 +17,7 @@ else
 	else
 		case "$@" in
 			"$FIRST_ENTRY_STR")
-				( [[ -n $ROFI_DATA ]] && pass show -c "$ROFI_DATA" ) >/dev/null &
+				( pass show -c "$ROFI_DATA" ) >/dev/null &
 				;;
 			otpauth)
 				( pass otp -c "$ROFI_DATA" ) >/dev/null &
