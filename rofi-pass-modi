@@ -16,7 +16,7 @@ else
 		# On subsequent calls if ROFI_DATA is null -> password file is selected
 		# List password file fields
 		printf "$FIRST_ENTRY_STR\n"
-		pass show "$@" | tail -n-1 | cut -s -d: -f1
+		pass show "$@" | tail -n+2 | cut -s -d: -f1
 		# for next call indicate the password file name in ROFI_DATA
 		printf "\0data\x1f$@\n"
 	else
