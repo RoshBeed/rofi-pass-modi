@@ -17,14 +17,14 @@ else
 	else
 		case "$@" in
 			"$FIRST_ENTRY_STR")
-				( pass show -c "$ROFI_DATA" ) >/dev/null &
+				coproc ( pass show -c "$ROFI_DATA" >/dev/null 2>&1 )
 				;;
 			otpauth)
-				( pass otp -c "$ROFI_DATA" ) >/dev/null &
+				coproc ( pass otp -c "$ROFI_DATA" >/dev/null 2>&1 )
 				;;
 			*)
 				LINE=$(pass show "$ROFI_DATA" | grep -n -E "^$@:" | cut -s -d: -f1)
-				( pass show -c"$LINE" "$ROFI_DATA" ) >/dev/null &
+				coproc ( pass show -c"$LINE" "$ROFI_DATA" >/dev/null 2>&1 )
 				;;
 		esac
 	fi
