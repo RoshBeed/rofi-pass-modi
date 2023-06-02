@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+FIRST_ENTRY_STR="First line (password?)"
+
 if [ -z $@ ]; then
 	shopt -s nullglob globstar
 	prefix=${PASSWORD_STORE_DIR-$HOME/.password-store}
@@ -8,5 +10,22 @@ if [ -z $@ ]; then
 	password_files=( "${password_files[@]%.gpg}" )
 	printf '%s\n' "${password_files[@]}"
 else
-	[[ -n $@ ]] && pass show -c "$@" >/dev/null
+	if [ -z $ROFI_DATA ]; then
+		printf "$FIRST_ENTRY_STR\n"
+		pass show "$@" | tail -n-1 | cut -s -d: -f1
+		printf "\0data\x1f$@\n"
+	else
+		case "$@" in
+			"$FIRST_ENTRY_STR")
+				( [[ -n $ROFI_DATA ]] && pass show -c "$ROFI_DATA" ) >/dev/null &
+				;;
+			otpauth)
+				( pass otp -c "$ROFI_DATA" ) >/dev/null &
+				;;
+			*)
+				LINE=$(pass show "$ROFI_DATA" | grep -n -E "^$@:" | cut -s -d: -f1)
+				( pass show -c"$LINE" "$ROFI_DATA" ) >/dev/null &
+				;;
+		esac
+	fi
 fi
