@@ -2,42 +2,42 @@
 
 FIRST_ENTRY_STR="First line (password?)"
 
-if [ -z $@ ]; then
-	# No argument -> first call
-	# list password files
-	shopt -s nullglob globstar
-	prefix=${PASSWORD_STORE_DIR-$HOME/.password-store}
-	password_files=( "$prefix"/**/*.gpg )
-	password_files=( "${password_files[@]#"$prefix"/}" )
-	password_files=( "${password_files[@]%.gpg}" )
-	printf '%s\n' "${password_files[@]}"
-else
-	if [ -z $ROFI_DATA ]; then
-		# On subsequent calls if ROFI_DATA is null -> password file is selected
-		# List password file fields
-		printf "$FIRST_ENTRY_STR\n"
-		pass show "$@" | tail -n+2 | cut -s -d: -f1
-		# for next call indicate the password file name in ROFI_DATA
-		printf "\0data\x1f$@\n"
-	else
-	# ROFI_DATA is populated -> it contains password file name
-	# $@ contains field name
-	# print content of selected field depending on the field type
-		case "$@" in
+case "$ROFI_RETV" in
+    0)
+    	# No argument -> first call
+	    # list password files
+    	shopt -s nullglob globstar
+	    prefix=${PASSWORD_STORE_DIR-$HOME/.password-store}
+    	password_files=( "$prefix"/**/*.gpg )
+	    password_files=( "${password_files[@]#"$prefix"/}" )
+    	password_files=( "${password_files[@]%.gpg}" )
+    	printf "%s\n" "${password_files[@]}"
+        ;;
+    1)
+        ROFI_RETV=""
+        coproc ( "$0" $@ )
+        ;;
+    *)
+        # call dmenu mode with list of entries
+		entries=$(pass show "$@" | tail -n+2 | cut -s -d: -f1)
+        entries="${FIRST_ENTRY_STR}\n${entries}"
+        entry=$(echo -ne "$entries" | rofi -dmenu -p "entry")
+		case "$entry" in
 			"$FIRST_ENTRY_STR")
+                echo standard pass
 				# Field is the standard password
-				coproc ( pass show -c "$ROFI_DATA" >/dev/null 2>&1 )
+				coproc ( pass show -c "$@" >/dev/null 2>&1 )
 				;;
 			otpauth)
 				# Field is in OTP format
-				coproc ( pass otp -c "$ROFI_DATA" >/dev/null 2>&1 )
+				coproc ( pass otp -c "$@" >/dev/null 2>&1 )
 				;;
 			*)
 				# Other fields
 				# BUG: the name of the field is listed with the field content
-				LINE=$(pass show "$ROFI_DATA" | grep -n -E "^$@:" | cut -s -d: -f1)
-				coproc ( pass show -c"$LINE" "$ROFI_DATA" >/dev/null 2>&1 )
+				LINE=$(pass show "$@" | grep -n -E "^$entry:" | cut -s -d: -f1)
+				coproc ( pass show -c"$LINE" "$@" >/dev/null 2>&1 )
 				;;
 		esac
-	fi
-fi
+        ;;
+esac
