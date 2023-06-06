@@ -2,42 +2,61 @@
 
 FIRST_ENTRY_STR="First line (password?)"
 
-case "$ROFI_RETV" in
-    0)
-    	# No argument -> first call
-	    # list password files
+function list_passwords {
     	shopt -s nullglob globstar
 	    prefix=${PASSWORD_STORE_DIR-$HOME/.password-store}
     	password_files=( "$prefix"/**/*.gpg )
 	    password_files=( "${password_files[@]#"$prefix"/}" )
     	password_files=( "${password_files[@]%.gpg}" )
     	printf "%s\n" "${password_files[@]}"
+}
+
+# list entries of password file $1
+function list_password_entries {
+        echo "$FIRST_ENTRY_STR"
+		pass show "$1" | tail -n+2 | cut -s -d: -f1
+}
+
+# use rofi-dmenu to select an entry among those specified in $1
+# $1 is a string with '\n' as entry separators
+function select_entry {
+    echo -ne "$1" | rofi -dmenu -p "entry"
+}
+
+# copy (using pass) the entry $2 from password $1
+function copy_entry {
+    case "$entry" in
+        "$FIRST_ENTRY_STR")
+            # Field is the standard password
+            coproc ( pass show -c "$1" >/dev/null 2>&1 )
+            ;;
+        otpauth)
+            # Field is in OTP format
+            coproc ( pass otp -c "$1" >/dev/null 2>&1 )
+            ;;
+        *)
+            # Other fields
+            # BUG: the name of the field is listed with the field content
+            LINE=$(pass show "$1" | grep -n -E "^$2:" | cut -s -d: -f1)
+            coproc ( pass show -c"$LINE" "$1" >/dev/null 2>&1 )
+            ;;
+    esac
+}
+
+case "$ROFI_RETV" in
+    0)
+        # First call -> rofi-script mode
+        list_passwords
         ;;
     1)
+        # second call -> call back to activate rofi-dmenu mode
         ROFI_RETV=""
-        coproc ( "$0" $@ )
+        coproc ( "$0" "$@" >/dev/null 2>&1 )
         ;;
     *)
-        # call dmenu mode with list of entries
-		entries=$(pass show "$@" | tail -n+2 | cut -s -d: -f1)
-        entries="${FIRST_ENTRY_STR}\n${entries}"
-        entry=$(echo -ne "$entries" | rofi -dmenu -p "entry")
-		case "$entry" in
-			"$FIRST_ENTRY_STR")
-                echo standard pass
-				# Field is the standard password
-				coproc ( pass show -c "$@" >/dev/null 2>&1 )
-				;;
-			otpauth)
-				# Field is in OTP format
-				coproc ( pass otp -c "$@" >/dev/null 2>&1 )
-				;;
-			*)
-				# Other fields
-				# BUG: the name of the field is listed with the field content
-				LINE=$(pass show "$@" | grep -n -E "^$entry:" | cut -s -d: -f1)
-				coproc ( pass show -c"$LINE" "$@" >/dev/null 2>&1 )
-				;;
-		esac
-        ;;
+        # last call -> rofi-dmenu mode
+        entries=$(list_password_entries "$@")
+        entry=$(select_entry "$entries")
+        copy_entry "$@" "$entry"
+       ;;
 esac
