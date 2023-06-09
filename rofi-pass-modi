@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
+SCRIPT_PATH=$(dirname "$0")
 FIRST_ENTRY_STR="First line (password?)"
 PASS_BIN=$(which pass)
+PASS_LIB="$SCRIPT_PATH/passlib"
 
 function list_passwords {
     	shopt -s nullglob globstar
@@ -26,8 +28,6 @@ function select_entry {
 
 # clip a entry $2 from a password file $1
 function clip_entry {
-    source <( awk '/clip\(\)/,/^}/{print}' "$PASS_BIN" )  # get clip function from pass
-    source <( awk '1;/# BEGIN/{exit}' "$PASS_BIN" )  # get context of clip function from pass
     value=$("$PASS_BIN" show "$1" | grep -E "^$2:" | cut -s -d: -f2- | xargs)
     clip "$value" "$1"
 }
@@ -48,6 +48,15 @@ function copy_entry {
             ;;
     esac
 }
+
+# This script uses functions taken from the pass executable
+# To do so it first copies relevant data from $PASSBIN to $PATHLIB
+# if $PATHLIB does not exist / is older than $PATHBIN
+# it then sources $PATHLIB
+if [ ! -e "$PASS_LIB" -o "$PASS_BIN" -nt "$PASS_LIB" ];then
+    "$SCRIPT_PATH/gen_passlib" "$PASS_BIN" "$PASS_LIB"
+fi
+source "$PASS_LIB"
 
 case "$ROFI_RETV" in
     0)
