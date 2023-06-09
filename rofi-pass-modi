@@ -29,7 +29,6 @@ function clip_entry {
     source <( awk '/clip\(\)/,/^}/{print}' "$PASS_BIN" )  # get clip function from pass
     source <( awk '1;/# BEGIN/{exit}' "$PASS_BIN" )  # get context of clip function from pass
     value=$("$PASS_BIN" show "$1" | grep -E "^$2:" | cut -s -d: -f2- | xargs)
-    echo "VALUE: $value"
     clip "$value" "$1"
 }
 
