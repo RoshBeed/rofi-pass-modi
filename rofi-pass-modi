@@ -28,8 +28,10 @@ function select_entry {
 
 # clip a entry $2 from a password file $1
 function clip_entry {
-    value=$("$PASS_BIN" show "$1" | grep -E "^$2:" | cut -s -d: -f2- | xargs)
-    clip "$value" "$1"
+    value=$("$PASS_BIN" show "$1"  | tail -n+2 | grep -E "^$2:" | cut -s -d: -f2- | xargs)
+    if [ -n "$value" ]; then
+        clip "$value" "$1"
+    fi
 }
 
 # copy (using pass) the entry $2 from password $1
