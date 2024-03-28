@@ -53,7 +53,7 @@ function copy_entry {
 
 # This script uses functions taken from the pass executable
 # To do so it first copies relevant data from $PASSBIN to $PATHLIB
-# if $PATHLIB does not exist / is older than $PATHBIN
+# only if $PATHLIB does not exist or is older than $PATHBIN
 # it then sources $PATHLIB
 if [ ! -e "$PASS_LIB" -o "$PASS_BIN" -nt "$PASS_LIB" ];then
     "$SCRIPT_PATH/gen_passlib" "$PASS_BIN" "$PASS_LIB"
