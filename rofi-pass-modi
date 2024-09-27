@@ -1,12 +1,79 @@
 #!/usr/bin/env bash
 
-if [ -z $@ ]; then
-	shopt -s nullglob globstar
-	prefix=${PASSWORD_STORE_DIR-$HOME/.password-store}
-	password_files=( "$prefix"/**/*.gpg )
-	password_files=( "${password_files[@]#"$prefix"/}" )
-	password_files=( "${password_files[@]%.gpg}" )
-	printf '%s\n' "${password_files[@]}"
-else
-	[[ -n $@ ]] && pass show -c "$@" >/dev/null
+SCRIPT_PATH=$(dirname "$0")
+FIRST_ENTRY_STR="First line (password?)"
+PASS_BIN=$(which pass)
+PASS_LIB="$SCRIPT_PATH/passlib"
+
+function list_passwords {
+    	shopt -s nullglob globstar
+	    prefix=${PASSWORD_STORE_DIR-$HOME/.password-store}
+    	password_files=( "$prefix"/**/*.gpg )
+	    password_files=( "${password_files[@]#"$prefix"/}" )
+    	password_files=( "${password_files[@]%.gpg}" )
+    	printf "%s\n" "${password_files[@]}"
+}
+
+# list entries of password file $1
+function list_password_entries {
+        echo "$FIRST_ENTRY_STR"
+		( set -o pipefail; "$PASS_BIN" show "$1" | tail -n+2 | cut -s -d: -f1 ) || exit
+}
+
+# use rofi-dmenu to select an entry among those specified in $1
+# $1 is a string with '\n' as entry separators
+function select_entry {
+    echo -ne "$1" | rofi -dmenu -p "entry"
+}
+
+# clip a entry $2 from a password file $1
+function clip_entry {
+    value=$("$PASS_BIN" show "$1"  | tail -n+2 | grep -E "^$2:" | cut -s -d: -f2- | xargs)
+    if [ -n "$value" ]; then
+        clip "$value" "$1"
+    fi
+}
+
+# copy (using pass) the entry $2 from password $1
+function copy_entry {
+    case "$2" in
+        "$FIRST_ENTRY_STR")
+            # Field is the standard password
+            coproc ( "$PASS_BIN" show -c "$1" >/dev/null 2>&1 )
+            ;;
+        otpauth)
+            # Field is in OTP format
+            coproc ( "$PASS_BIN" otp -c "$1" >/dev/null 2>&1 )
+            ;;
+        *)
+            clip_entry "$1" "$2"
+            ;;
+    esac
+}
+
+# This script uses functions taken from the pass executable
+# To do so it first copies relevant data from $PASSBIN to $PATHLIB
+# only if $PATHLIB does not exist or is older than $PATHBIN
+# it then sources $PATHLIB
+if [ ! -e "$PASS_LIB" -o "$PASS_BIN" -nt "$PASS_LIB" ];then
+    "$SCRIPT_PATH/gen_passlib" "$PASS_BIN" "$PASS_LIB"
 fi
+source "$PASS_LIB"
+
+case "$ROFI_RETV" in
+    0)
+        # First call -> rofi-script mode
+        list_passwords
+        ;;
+    1)
+        # second call -> call back to activate rofi-dmenu mode
+        ROFI_RETV=""
+        coproc ( "$0" "$@" >/dev/null 2>&1 )
+        ;;
+    *)
+        # last call -> rofi-dmenu mode
+        entries=$(list_password_entries "$@") || exit
+        entry=$(select_entry "$entries")
+        copy_entry "$@" "$entry"
+       ;;
+esac

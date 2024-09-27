@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+PASSFILE="$1"
+PASSLIBFILE="$2"
+
+if [ "$#" -ne 2 ]; then
+    f=$(basename "$0")
+    echo "Usage: $f /path/to/passlibfile"
+fi
+
+grep -E "^BASE64=|^X_SELECTION=|^CLIP_TIME" "$PASSFILE" > "$PASSLIBFILE"
+awk '/clip\(\)/,/^}/{print}' "$PASSFILE" >> "$PASSLIBFILE"
